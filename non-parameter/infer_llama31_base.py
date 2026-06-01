@@ -30,24 +30,24 @@ def build_prompt_with_chat_template(tok, question: str, params: dict | None = No
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base_model", default="meta-llama/Llama-3.1-8B-Instruct")
-    ap.add_argument("--question",   required=True, help="英文自然语言问题")
-    ap.add_argument("--params_json", default=None, help='可选 JSON，比如 {\"gene\":\"BRCA1\"}')
+    ap.add_argument("--question",   required=True, help="English natural-language question")
+    ap.add_argument("--params_json", default=None, help='Optional JSON, e.g. {\"gene\":\"BRCA1\"}')
     ap.add_argument("--max_new_tokens", type=int, default=128)
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--top_p", type=float, default=1.0)
-    ap.add_argument("--do_sample", action="store_true", help="是否启用采样（默认关闭）")
+    ap.add_argument("--do_sample", action="store_true", help="Enable sampling (off by default)")
     args = ap.parse_args()
 
-    # ---- HF 登录（如不需要可置空或用环境变量）----
+    # ---- HF login (leave empty if unnecessary or use environment variables)----
     HF_TOKEN = os.environ.get("HF_TOKEN")
     if HF_TOKEN:
         try:
             login(token=HF_TOKEN, add_to_git_credential=False)
-            print("✅ 已登录 Hugging Face")
+            print("✅ Logged in to Hugging Face")
         except Exception as e:
-            print("⚠️ 登录失败：", e)
+            print("⚠️ Login failed:", e)
 
-    # ---- 加载 tokenizer 与基座模型（无 LoRA）----
+    # ---- Load tokenizer and base model (no LoRA)----
     tok = AutoTokenizer.from_pretrained(
         args.base_model,
         token=HF_TOKEN if HF_TOKEN else None,
@@ -65,12 +65,12 @@ def main():
     )
     model.eval()
 
-    # ---- 构造 prompt ----
+    # ---- Build prompt ----
     hint_params = json.loads(args.params_json) if args.params_json else None
     prompt = build_prompt_with_chat_template(tok, args.question, hint_params)
     inputs = tok(prompt, return_tensors="pt").to(model.device)
 
-    # ---- 生成 ----
+    # ---- Generate ----
     with torch.no_grad():
         out = model.generate(
             **inputs,
@@ -81,15 +81,15 @@ def main():
             pad_token_id=tok.eos_token_id,
         )
 
-    # ---- 解码：保留完整“新生成”文本，不做删除 ----
+    # ---- Decode: keep the full newly generated text without deletion ----
     generated_ids = out[0]
-    # 只解码新生成的 tokens，避免把 prompt 也一起打印出来
+    # Decode only newly generated tokens to avoid printing the prompt
     new_token_ids = generated_ids[inputs["input_ids"].shape[1]:]
     text = tok.decode(new_token_ids, skip_special_tokens=True)
 
     print("\n=== Raw Model Output ===\n" + text)
 
-    # ---- 额外：尝试检测并打印第一条 Cypher（不删除其它内容）----
+    # ---- Extra: try to detect and print the first Cypher query (without deleting other content)----
     m = re.search(r"(?mi)^(MATCH|CREATE|MERGE|RETURN)\\b.*", text)
     if m:
         cypher_line = m.group(0).strip()

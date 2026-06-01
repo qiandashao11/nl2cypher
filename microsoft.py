@@ -1,7 +1,7 @@
 # nl2cypher_fixed_schema.py
 """
-自然语言 -> Cypher 查询生成器 (固定 Schema 版本)
-使用 HuggingFace 模型: microsoft/phi-3-mini-4k-instruct
+Natural language -> Cypher query generator (fixed-schema version)
+Uses Hugging Face model: microsoft/phi-3-mini-4k-instruct
 """
 
 import re
@@ -22,7 +22,7 @@ model = AutoModelForCausalLM.from_pretrained(
 generator = pipeline("text-generation", model=model, tokenizer=tokenizer)
 print("Model loaded on:", next(model.parameters()).device)
 
-# 固定的 Schema 说明
+# Fixed schema description
 SCHEMA = """
 Schema:
 - Node labels: Literature, Gene, MeSH

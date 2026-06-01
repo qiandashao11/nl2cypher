@@ -9,18 +9,18 @@ from transformers import (
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from huggingface_hub import login
 
-# -------- 登录（建议改为环境变量）--------
+# -------- Login (use environment variables)--------
 HF_TOKEN = os.environ.get("HF_TOKEN")
 if HF_TOKEN:
     try:
         login(token=HF_TOKEN, add_to_git_credential=False)
-        print("✅ 已登录 Hugging Face")
+        print("✅ Logged in to Hugging Face")
     except Exception as e:
-        print("⚠️ 登录失败：", e)
+        print("⚠️ Login failed:", e)
 else:
-    print("ℹ️ 未设置 HF_TOKEN，将依赖本地缓存/已登录状态。")
+    print("ℹ️ HF_TOKEN is not set; relying on local cache or existing login state.")
 
-# -------- 基础配置 --------
+# -------- Basic configuration --------
 MODEL_NAME = os.environ.get("BASE_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
 DATA_PATH  = os.environ.get("DATA_PATH", "train.chat.phase1.jsonl")
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "./lora_out_llama3_8b2")
@@ -35,12 +35,12 @@ print(f"4-bit quant: {USE_4BIT}")
 print(f"Local-only : {LOCAL_FILES_ONLY}")
 print(f"Max length : {MAX_LEN}")
 
-# -------- 数据集加载 --------
+# -------- Load dataset --------
 raw_ds = load_dataset("json", data_files=DATA_PATH, split="train")
 splits  = raw_ds.train_test_split(test_size=0.1, seed=42)
 train_raw, eval_raw = splits["train"], splits["test"]
 
-# -------- Chat prompt 定义（与 infer 一致）--------
+# -------- Chat prompt definition (consistent with inference)--------
 SCHEMA_SYSTEM_PROMPT = """You are a Cypher generator for a Neo4j graph.
 
 Your job:
@@ -116,7 +116,7 @@ def build_prompt(example):
 train_ds = train_raw.map(build_prompt)
 eval_ds  = eval_raw.map(build_prompt)
 
-# -------- 4-bit 量化（可选）--------
+# -------- 4-bit quantization (optional)--------
 bnb_config = None
 if USE_4BIT:
     bnb_config = BitsAndBytesConfig(
@@ -162,7 +162,7 @@ def _try_load():
         return AutoModelForCausalLM.from_pretrained(MODEL_NAME, **model_kwargs)
     except Exception as e:
         if not (LOCAL_FILES_ONLY or IS_LOCAL_PATH):
-            print("⚠️ 远程加载失败，回退 local_files_only=True。错误：", repr(e))
+            print("⚠️ Remote loading failed; falling back to local_files_only=True. Error:", repr(e))
             model_kwargs["local_files_only"] = True
             model_kwargs.pop("token", None)
             return AutoModelForCausalLM.from_pretrained(MODEL_NAME, **model_kwargs)
@@ -170,7 +170,7 @@ def _try_load():
 
 model = _try_load()
 
-# -------- LoRA 设置 --------
+# -------- LoRA settings --------
 def pick_target_modules(m):
     names = set()
     for n, mod in m.named_modules():
@@ -194,7 +194,7 @@ model.print_trainable_parameters()
 if hasattr(model, "gradient_checkpointing_enable"):
     model.gradient_checkpointing_enable()
 
-# -------- Tokenize（chat模板版本）--------
+# -------- Tokenize (chat-template version)--------
 def tokenize_function(batch):
     msgs_list = [json.loads(x) for x in batch["messages"]]
     prompts = [
@@ -221,7 +221,7 @@ def tokenize_function(batch):
 train_tok = train_ds.map(tokenize_function, batched=True, remove_columns=train_ds.column_names)
 eval_tok  = eval_ds.map(tokenize_function,  batched=True, remove_columns=eval_ds.column_names)
 
-# -------- 训练参数 --------
+# -------- Training arguments --------
 args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     per_device_train_batch_size=1 if USE_4BIT else 2,

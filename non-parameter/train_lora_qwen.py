@@ -8,9 +8,9 @@ from transformers import (
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
-# -------- 基础配置 --------
+# -------- Basic configuration --------
 MODEL_NAME = os.environ.get("BASE_MODEL", "Qwen/Qwen3-30B-A3B")
-DATA_PATH  = os.environ.get("DATA_PATH", "train.chat.jsonl")   # 你的 JSONL
+DATA_PATH  = os.environ.get("DATA_PATH", "train.chat.jsonl")   # your JSONL
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "./lora_out_qwen3_30b_fp16")
 MAX_LEN    = int(os.environ.get("MAX_LEN", "2048"))
 USE_4BIT   = os.environ.get("USE_4BIT", "1") == "1"
@@ -24,12 +24,12 @@ print(f"4-bit quant: {USE_4BIT}")
 print(f"Local-only : {LOCAL_FILES_ONLY}")
 print(f"Max length : {MAX_LEN}")
 
-# -------- 数据集加载 --------
+# -------- Load dataset --------
 raw_ds = load_dataset("json", data_files=DATA_PATH, split="train")
 splits  = raw_ds.train_test_split(test_size=0.1, seed=42)
 train_raw, eval_raw = splits["train"], splits["test"]
 
-# -------- 针对你的图谱的系统提示（可按需修改/加属性） --------
+# -------- System prompt for your graph (customize or add properties as needed) --------
 SCHEMA_SYSTEM_PROMPT = """You are a Cypher generator for a Neo4j graph.
 Only output a Cypher query. Do not add explanations.
 
@@ -48,7 +48,7 @@ Guidelines:
 """
 
 def _extract_qa(example):
-    """支持两种结构：
+    """Supports two structures:
     A) chat JSONL: {"messages":[{"role":"user","content":...},{"role":"assistant","content":...}]}
     B) flat JSONL: {"question_en": "...", "cypher": "...", "params": {...}}"""
     if "messages" in example and isinstance(example["messages"], list):
@@ -69,7 +69,7 @@ def build_prompt(example):
 train_ds = train_raw.map(build_prompt)
 eval_ds  = eval_raw.map(build_prompt)
 
-# -------- 4-bit 量化配置（可选） --------
+# -------- 4-bit quantization config (optional) --------
 bnb_config = None
 if USE_4BIT:
     bnb_config = BitsAndBytesConfig(
@@ -81,7 +81,7 @@ if USE_4BIT:
 
 # -------- Tokenizer --------
 tok_kwargs = {
-    "use_fast": False,   # Qwen3 推荐 slow tokenizer
+    "use_fast": False,   # Qwen3 recommends the slow tokenizer
     "trust_remote_code": True,
     "local_files_only": LOCAL_FILES_ONLY or IS_LOCAL_PATH,
 }
@@ -108,13 +108,13 @@ def _try_load():
     try:
         return AutoModelForCausalLM.from_pretrained(MODEL_NAME, **model_kwargs)
     except Exception as e:
-        print("⚠️ 远程加载失败，回退 local_files_only=True。错误：", repr(e))
+        print("⚠️ Remote loading failed; falling back to local_files_only=True. Error:", repr(e))
         model_kwargs["local_files_only"] = True
         return AutoModelForCausalLM.from_pretrained(MODEL_NAME, **model_kwargs)
 
 model = _try_load()
 
-# -------- LoRA 目标层自动选择 --------
+# -------- Automatically select LoRA target layers --------
 def pick_target_modules(m):
     names = set()
     for n, mod in m.named_modules():
@@ -139,7 +139,7 @@ model.print_trainable_parameters()
 if hasattr(model, "gradient_checkpointing_enable"):
     model.gradient_checkpointing_enable()
 
-# -------- Tokenize（只对答案段计损失） --------
+# -------- Tokenize (compute loss only on the answer segment) --------
 def tokenize_function(batch):
     inputs = [p + t for p, t in zip(batch["prompt"], batch["target"])]
     out = tokenizer(inputs, truncation=True, padding="max_length", max_length=MAX_LEN)
@@ -161,7 +161,7 @@ def tokenize_function(batch):
 train_tok = train_ds.map(tokenize_function, batched=True, remove_columns=train_ds.column_names)
 eval_tok  = eval_ds.map(tokenize_function,  batched=True, remove_columns=eval_ds.column_names)
 
-# -------- 训练参数 --------
+# -------- Training arguments --------
 args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     per_device_train_batch_size=1 if USE_4BIT else 2,

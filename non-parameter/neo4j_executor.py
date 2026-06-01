@@ -1,26 +1,26 @@
 # ==================== neo4j_executor.py ====================
 """
-Neo4j查询执行器
-执行Cypher查询并返回结构化结果
+Neo4j query executor
+Execute Cypher queries and return structured results
 """
 from neo4j import GraphDatabase
 from typing import Dict, List, Any
 
 
 class Neo4jExecutor:
-    """Neo4j查询执行器"""
+    """Neo4j query executor"""
     
     def __init__(self, 
                  uri: str = "neo4j://localhost:7687",
                  user: str = "neo4j",
                  password: str = ""):
         """
-        初始化Neo4j连接
+        Initialize Neo4j connection
         
         Args:
-            uri: Neo4j服务器地址
-            user: 用户名
-            password: 密码
+            uri: Neo4j server URI
+            user: username
+            password: password
         """
         self.uri = uri
         self.user = user
@@ -33,20 +33,20 @@ class Neo4jExecutor:
                 database: str = "neo4j",
                 parameters: dict = None) -> Dict[str, Any]:
         """
-        执行Cypher查询
+        Execute Cypher query
         
         Args:
-            cypher: Cypher查询字符串
-            database: 数据库名称
-            parameters: 查询参数
+            cypher: Cypher query string
+            database: database name
+            parameters: query parameters
             
         Returns:
-            包含查询结果的字典:
+            dictionary containing query results:
             {
                 "success": bool,
                 "data": List[dict],
                 "count": int,
-                "error": str (仅在失败时)
+                "error": str (only on failure)
             }
         """
         try:
@@ -68,7 +68,7 @@ class Neo4jExecutor:
             }
     
     def test_connection(self) -> bool:
-        """测试连接"""
+        """Test connection"""
         try:
             with self.driver.session() as session:
                 result = session.run("RETURN 1 AS num")
@@ -78,21 +78,21 @@ class Neo4jExecutor:
             return False
     
     def close(self):
-        """关闭连接"""
+        """Close connection"""
         self.driver.close()
         print("✅ Neo4j connection closed")
     
     def __enter__(self):
-        """支持with语句"""
+        """Support with-statements"""
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """支持with语句"""
+        """Support with-statements"""
         self.close()
 
 
 if __name__ == "__main__":
-    # 测试
+    # Test
     with Neo4jExecutor() as executor:
         if executor.test_connection():
             print("✅ Connection test passed")

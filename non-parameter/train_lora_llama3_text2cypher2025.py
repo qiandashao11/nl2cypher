@@ -15,12 +15,12 @@ from transformers import (
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
-# -------------------- ✅ 无需登录，无需 token --------------------
-# 禁用 Hugging Face Hub 自动登录
+# -------------------- ✅ No login or token required --------------------
+# Disable automatic Hugging Face Hub login
 os.environ.pop("HF_TOKEN", None)
 os.environ.pop("HUGGINGFACE_HUB_TOKEN", None)
 
-# -------------------- 模型与数据设置 --------------------
+# -------------------- Model and data settings --------------------
 MODEL_NAME = os.environ.get("BASE_MODEL", os.path.expanduser("~/models/llama3_8b_instruct"))
 DATASET_ID = os.environ.get("DATASET_ID", "neo4j/text2cypher-2025v1")
 LORA_R     = int(os.environ.get("LORA_R", "32"))
@@ -29,11 +29,11 @@ OUTPUT_DIR = os.environ.get("OUTPUT_DIR", f"./lora_out_llama3_local_r{LORA_R}_t2
 MAX_LEN    = int(os.environ.get("MAX_LEN", "2048"))
 USE_4BIT   = os.environ.get("USE_4BIT", "1") == "1"
 
-# 模型为本地路径，数据集允许联网
+# Model is a local path; dataset loading may use the network
 LOCAL_FILES_ONLY = False
 IS_LOCAL_PATH    = os.path.isdir(MODEL_NAME)
 if not IS_LOCAL_PATH:
-    raise FileNotFoundError(f"❌ 模型目录不存在: {MODEL_NAME}")
+    raise FileNotFoundError(f"❌ Model directory does not exist: {MODEL_NAME}")
 
 print(f"Base model : {MODEL_NAME} (local dir)")
 print(f"Dataset    : {DATASET_ID}")
@@ -43,7 +43,7 @@ print(f"Max length : {MAX_LEN}")
 print(f"LoRA rank  : {LORA_R}")
 print(f"Output dir : {OUTPUT_DIR}")
 
-# -------------------- 数据集：联网加载 --------------------
+# -------------------- Dataset: load online --------------------
 def _load_splits():
     try:
         train_raw = load_dataset(DATASET_ID, split="train")
@@ -58,7 +58,7 @@ def _load_splits():
 
 train_raw, eval_raw = _load_splits()
 
-# -------------------- 构造 prompt --------------------
+# -------------------- Build prompt --------------------
 def build_prompt(example):
     q = example.get("question", "") or example.get("question_en", "")
     c = example.get("cypher", "") or ""
@@ -72,7 +72,7 @@ def build_prompt(example):
 train_ds = train_raw.map(build_prompt)
 eval_ds  = eval_raw.map(build_prompt)
 
-# -------------------- 4-bit 量化 --------------------
+# -------------------- 4-bit quantization --------------------
 bnb_config = None
 if USE_4BIT:
     bnb_config = BitsAndBytesConfig(
@@ -82,18 +82,18 @@ if USE_4BIT:
         bnb_4bit_compute_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float16,
     )
 
-# -------------------- 加载本地 Tokenizer --------------------
+# -------------------- Load local tokenizer --------------------
 tok_kwargs = {
     "use_fast": True,
     "trust_remote_code": False,
-    "local_files_only": True,   # ✅ 仅本地加载
+    "local_files_only": True,   # ✅ local loading only
 }
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, **tok_kwargs)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "right"
 
-# -------------------- 加载本地 Config --------------------
+# -------------------- Load local config --------------------
 config = AutoConfig.from_pretrained(MODEL_NAME, local_files_only=True)
 config.use_cache = False
 
@@ -104,18 +104,18 @@ ROPE_SCALE = os.environ.get("ROPE_SCALE")
 if ROPE_SCALE:
     config.rope_scaling = {"type": "dynamic", "factor": float(ROPE_SCALE)}
 
-# -------------------- 加载本地模型 --------------------
+# -------------------- Load local model --------------------
 model_kwargs = {
     "config": config,
     "device_map": "auto",
     "trust_remote_code": False,
     "torch_dtype": torch.bfloat16 if torch.cuda.is_available() else torch.float16,
     "quantization_config": bnb_config if USE_4BIT else None,
-    "local_files_only": True,   # ✅ 强制本地加载
+    "local_files_only": True,   # ✅ force local loading
 }
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, **model_kwargs)
 
-# -------------------- LoRA 适配 --------------------
+# -------------------- LoRA adaptation --------------------
 def pick_target_modules(m):
     names = set()
     for n, mod in m.named_modules():
@@ -166,7 +166,7 @@ def tokenize_function(batch):
 train_tok = train_ds.map(tokenize_function, batched=True, remove_columns=train_ds.column_names)
 eval_tok  = eval_ds.map(tokenize_function,  batched=True, remove_columns=eval_ds.column_names)
 
-# -------------------- 训练参数 --------------------
+# -------------------- Training arguments --------------------
 args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     per_device_train_batch_size=1,
@@ -199,7 +199,7 @@ trainer = Trainer(
 
 trainer.train()
 
-# -------------------- 保存 --------------------
+# -------------------- Save --------------------
 trainer.save_model(OUTPUT_DIR)
 tokenizer.save_pretrained(OUTPUT_DIR)
 print(f"✅ LoRA training finished. Model saved to: {OUTPUT_DIR}")

@@ -8,7 +8,7 @@ from huggingface_hub import login
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
 
-# ---------- Prompt 构造 ----------
+# ---------- Prompt construction ----------
 def build_prompt_with_chat_template(tok, question: str, params: dict | None = None) -> str:
     system = (
         "You are a Cypher generator for a Neo4j graph.\n"
@@ -49,28 +49,28 @@ def build_prompt_with_chat_template(tok, question: str, params: dict | None = No
     return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
 
 
-# ---------- 主函数 ----------
+# ---------- Main function ----------
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base_model", default="meta-llama/Llama-3.1-8B-Instruct")
     ap.add_argument("--lora_dir", default="./lora_out_llama3_8b3")
-    ap.add_argument("--question", required=True, help="英文自然语言问题")
-    ap.add_argument("--params_json", default=None, help='可选参数 JSON，比如 \'{"gene":"BRCA1"}\'')
+    ap.add_argument("--question", required=True, help="English natural-language question")
+    ap.add_argument("--params_json", default=None, help='optional parameters JSON, e.g. \'{"gene":"BRCA1"}\'')
     ap.add_argument("--max_new_tokens", type=int, default=256)
     ap.add_argument("--temperature", type=float, default=0.7)
     ap.add_argument("--top_p", type=float, default=1.0)
-    ap.add_argument("--do_sample", action="store_true", help="是否启用采样（默认关闭）")
+    ap.add_argument("--do_sample", action="store_true", help="Enable sampling (off by default)")
     args = ap.parse_args()
 
-    # ---------- 登录 HF ----------
+    # ---------- Hugging Face login ----------
     if HF_TOKEN:
         try:
             login(token=HF_TOKEN, add_to_git_credential=False)
-            print("✅ 已登录 Hugging Face")
+            print("✅ Logged in to Hugging Face")
         except Exception as e:
-            print("⚠️ 登录失败：", e)
+            print("⚠️ Login failed:", e)
 
-    # ---------- 加载 tokenizer ----------
+    # ---------- Load tokenizer ----------
     tok = AutoTokenizer.from_pretrained(
         args.base_model,
         token=HF_TOKEN if HF_TOKEN else None,
@@ -79,7 +79,7 @@ def main():
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
 
-    # ---------- 加载模型 ----------
+    # ---------- Load model ----------
     print(f"🔹 Loading base model: {args.base_model}")
     base = AutoModelForCausalLM.from_pretrained(
         args.base_model,
@@ -92,12 +92,12 @@ def main():
     model = PeftModel.from_pretrained(base, args.lora_dir)
     model.eval()
 
-    # ---------- 构造 prompt ----------
+    # ---------- Build prompt ----------
     hint_params = json.loads(args.params_json) if args.params_json else None
     prompt = build_prompt_with_chat_template(tok, args.question, hint_params)
     inputs = tok(prompt, return_tensors="pt").to(model.device)
 
-    # ---------- 推理 ----------
+    # ---------- Inference ----------
     gen_kwargs = dict(
         max_new_tokens=args.max_new_tokens,
         do_sample=args.do_sample,
@@ -110,18 +110,18 @@ def main():
     with torch.no_grad():
         out = model.generate(**inputs, **gen_kwargs)
 
-    # ---------- 解码 + 后处理 ----------
+    # ---------- Decode + post-process ----------
     text = tok.decode(out[0], skip_special_tokens=True)
 
-    # 打印原始结果调试（可注释掉）
+    # Print raw output for debugging (can be commented out)
     # print("=== RAW OUTPUT ===")
     # print(repr(text))
 
-    # 从第一处 MATCH/CREATE/MERGE/RETURN 开始截取到结尾
+    # Slice from the first MATCH/CREATE/MERGE/RETURN to the end
     start = re.search(r'(?m)^(MATCH|CREATE|MERGE|RETURN)\b', text)
     cypher = text[start.start():].strip() if start else text.strip()
 
-    # 去掉可能的 markdown 代码围栏
+    # Remove possible markdown code fences
     cypher = re.sub(r'^\s*```(?:cypher)?\s*', '', cypher)
     cypher = re.sub(r'\s*```.*$', '', cypher)
 

@@ -7,8 +7,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 
 DEF_BASE   = "microsoft/phi-3-mini-4k-instruct"
-DEF_ADAPT  = "./lora_out"          # LoRA 适配器目录
-DEF_MERGED = None                  # 若已merge，可传该目录
+DEF_ADAPT  = "./lora_out"          # LoRA adapter directory
+DEF_MERGED = None                  # If already merged, pass that directory
 STOP_HINTS = ["\n\n", "\nUser:", "\nAssistant:", "```"]
 
 def load_text(path: Optional[str]) -> str:
@@ -31,15 +31,15 @@ def build_prompt(query: str, style: str, schema_text: str = "") -> str:
         return f"User: {query}\nCypher:\n"
 
 def postprocess(text: str) -> str:
-    """抓取 Cypher 段，尽量截断到合适位置。"""
-    # 取 'Cypher:\n' 之后
+    """Capture the Cypher segment and truncate it at a suitable point when possible."""
+    # Take the content after 'Cypher:\n'
     if "Cypher:\n" in text:
         text = text.split("Cypher:\n", 1)[-1]
-    # 首选；如果出现分号，取第一条语句
+    # Preferred path: if a semicolon appears, keep the first statement
     if ";" in text:
         first = text.split(";", 1)[0] + ";"
         return first.strip()
-    # 次选：遇到提示语或空行截断
+    # Fallback path: truncate at prompt text or blank lines
     for s in STOP_HINTS:
         if s in text:
             text = text.split(s, 1)[0]
@@ -65,10 +65,10 @@ def generate_one(tok, model, prompt: str, max_new_tokens=200,
 def load_model(base: Optional[str], adapter: Optional[str], merged: Optional[str],
                device: str = "auto"):
     """
-    三种加载方式：
-    1) merged!=None  -> 直接加载合并后的完整模型
-    2) adapter!=None -> 加载 base + LoRA 适配器
-    3) 仅 base       -> 直接用底模
+    Three loading modes:
+    1) merged!=None  -> load the merged full model directly
+    2) adapter!=None -> load base + LoRA adapter
+    3) base only       -> use the base model directly
     """
     target = merged or base or DEF_BASE
     print(f"[Load] tokenizer/model from: {target}")
@@ -143,7 +143,7 @@ def main():
                     help="Merged full model directory (takes precedence over adapter).")
     ap.add_argument("--device", default="auto", help="'auto' | 'cpu' | 'cuda'")
     ap.add_argument("--style", choices=["train", "plain", "minimal"], default="train",
-                    help="Prompt style (train=与训练一致，推荐).")
+                    help="Prompt style (train=matches training, recommended).")
     ap.add_argument("--schema-file", default=None, help="Optional schema/notes file to prepend.")
     ap.add_argument("--q", "--query", dest="query", default=None, help="Single query text.")
     ap.add_argument("--infile", default=None, help="Batch file: one question per line.")

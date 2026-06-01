@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # ==================== gui_app.py ====================
 """
-Neo4j问答系统 - GUI版本
-显示最终答案和中间生成的Cypher查询
+Neo4j QA system - GUI version
+Show the final answer and intermediate generated Cypher query
 """
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
@@ -12,32 +12,32 @@ from qa_system import Neo4jQASystem
 
 
 class Neo4jQAApp:
-    """Neo4j问答系统GUI应用"""
+    """Neo4j QA GUI application"""
     
     def __init__(self, root):
         self.root = root
         self.root.title("Neo4j Knowledge Graph Q&A System")
         self.root.geometry("1000x700")
         
-        # 系统状态
+        # System state
         self.qa_system = None
         self.is_initialized = False
         
         self._setup_ui()
     
     def _setup_ui(self):
-        """设置界面"""
-        # ===== 配置区域 =====
+        """Set up the UI"""
+        # ===== Configuration area =====
         config_frame = ttk.LabelFrame(self.root, text="Configuration", padding=10)
         config_frame.pack(fill="x", padx=10, pady=5)
         
-        # LoRA路径
+        # LoRA path
         ttk.Label(config_frame, text="LoRA Dir:").grid(row=0, column=0, sticky="w", padx=5, pady=3)
         self.lora_entry = ttk.Entry(config_frame, width=50)
         self.lora_entry.insert(0, "nl2cypher/non-parameter/lora_out_llama3_8b2")
         self.lora_entry.grid(row=0, column=1, padx=5, pady=3)
         
-        # Neo4j配置
+        # Neo4j configuration
         ttk.Label(config_frame, text="Neo4j URI:").grid(row=1, column=0, sticky="w", padx=5, pady=3)
         self.uri_entry = ttk.Entry(config_frame, width=50)
         self.uri_entry.insert(0, "neo4j://localhost:7687")
@@ -58,21 +58,21 @@ class Neo4jQAApp:
         self.pass_entry.insert(0, "neo4j")
         self.pass_entry.grid(row=4, column=1, sticky="w", padx=5, pady=3)
         
-        # 语言选择
+        # Language selection
         ttk.Label(config_frame, text="Language:").grid(row=5, column=0, sticky="w", padx=5, pady=3)
         self.lang_var = tk.StringVar(value="English")
         lang_combo = ttk.Combobox(config_frame, textvariable=self.lang_var, 
-                                   values=["English", "中文"], width=18, state="readonly")
+                                   values=["English", "Chinese"], width=18, state="readonly")
         lang_combo.grid(row=5, column=1, sticky="w", padx=5, pady=3)
         
-        # 初始化按钮
+        # Initialize button
         self.init_btn = ttk.Button(config_frame, text="Initialize System", command=self._initialize_system)
         self.init_btn.grid(row=6, column=0, columnspan=2, pady=10)
         
         self.status_label = ttk.Label(config_frame, text="Status: Not initialized", foreground="red")
         self.status_label.grid(row=7, column=0, columnspan=2)
         
-        # ===== 问题输入区域 =====
+        # ===== Question input area =====
         question_frame = ttk.LabelFrame(self.root, text="Question", padding=10)
         question_frame.pack(fill="x", padx=10, pady=5)
         
@@ -83,7 +83,7 @@ class Neo4jQAApp:
         self.ask_btn = ttk.Button(question_frame, text="Ask", command=self._ask_question, state="disabled")
         self.ask_btn.pack(side="right", padx=5)
         
-        # ===== Cypher查询显示区域 =====
+        # ===== Generated Cypher query display area =====
         cypher_frame = ttk.LabelFrame(self.root, text="Generated Cypher Query", padding=10)
         cypher_frame.pack(fill="both", expand=True, padx=10, pady=5)
         
@@ -96,7 +96,7 @@ class Neo4jQAApp:
         )
         self.cypher_text.pack(fill="both", expand=True)
         
-        # ===== 答案显示区域 =====
+        # ===== Answer display area =====
         answer_frame = ttk.LabelFrame(self.root, text="Final Answer", padding=10)
         answer_frame.pack(fill="both", expand=True, padx=10, pady=5)
         
@@ -108,7 +108,7 @@ class Neo4jQAApp:
         )
         self.answer_text.pack(fill="both", expand=True)
         
-        # ===== 底部状态栏 =====
+        # ===== Footer status bar =====
         status_frame = ttk.Frame(self.root)
         status_frame.pack(fill="x", padx=10, pady=5)
         
@@ -116,7 +116,7 @@ class Neo4jQAApp:
         self.progress_label.pack(side="left")
     
     def _initialize_system(self):
-        """初始化QA系统"""
+        """Initialize QA system"""
         self.init_btn.config(state="disabled")
         self.status_label.config(text="Status: Initializing...", foreground="orange")
         self.progress_label.config(text="Initializing models...", foreground="orange")
@@ -157,7 +157,7 @@ class Neo4jQAApp:
         threading.Thread(target=init_thread, daemon=True).start()
     
     def _ask_question(self):
-        """处理问题"""
+        """Handle the question"""
         if not self.is_initialized:
             messagebox.showwarning("Warning", "Please initialize the system first!")
             return
@@ -167,17 +167,17 @@ class Neo4jQAApp:
             messagebox.showwarning("Warning", "Please enter a question!")
             return
         
-        # 清空之前的结果
+        # Clear previous results
         self.cypher_text.delete(1.0, tk.END)
         self.answer_text.delete(1.0, tk.END)
         
-        # 禁用按钮
+        # Disable buttons
         self.ask_btn.config(state="disabled")
         self.progress_label.config(text="Processing...", foreground="orange")
         
         def qa_thread():
             try:
-                # 执行问答
+                # Run QA
                 result = self.qa_system.answer(
                     question=question,
                     database=self.db_entry.get(),
@@ -185,13 +185,13 @@ class Neo4jQAApp:
                     verbose=False
                 )
                 
-                # 显示Cypher
+                # Show Cypher
                 self.root.after(0, lambda: self.cypher_text.insert(1.0, result['cypher']))
                 
-                # 显示答案
+                # Show answer
                 self.root.after(0, lambda: self.answer_text.insert(1.0, result['answer']))
                 
-                # 更新状态
+                # Update status
                 self.root.after(0, lambda: self.progress_label.config(
                     text=f"Query returned {result['results']['count']} records", 
                     foreground="green"

@@ -16,7 +16,7 @@ from transformers import (
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from huggingface_hub import login
 
-# -------------------- 登录 Hugging Face --------------------
+# -------------------- Hugging Face login --------------------
 HF_TOKEN = os.environ.get("HF_TOKEN")
 if HF_TOKEN:
     try:
@@ -27,10 +27,10 @@ if HF_TOKEN:
 else:
     print("⚠️ No HF_TOKEN provided")
 
-# -------------------- 常量配置 --------------------
+# -------------------- Constant configuration --------------------
 MODEL_NAME = os.environ.get("BASE_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
 DATA_PATH  = os.environ.get("DATA_PATH", "nl2cypher_train_en_1000.jsonl")
-LORA_R     = int(os.environ.get("LORA_R", "32"))   # LoRA rank（默认32）
+LORA_R     = int(os.environ.get("LORA_R", "32"))   # LoRA rank (default: 32)
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", f"./lora_out_llama3_8b_r{LORA_R}")
 MAX_LEN    = int(os.environ.get("MAX_LEN", "2048"))
 USE_4BIT   = os.environ.get("USE_4BIT", "1") == "1"
@@ -46,10 +46,10 @@ print(f"Max length : {MAX_LEN}")
 print(f"LoRA rank  : {LORA_R}")
 print(f"Output dir : {OUTPUT_DIR}")
 
-# -------------------- 数据集 --------------------
+# -------------------- Dataset --------------------
 raw_ds = load_dataset("json", data_files=DATA_PATH, split="train")
 
-# 划分验证集（10%）
+# Split validation set (10%)
 splits = raw_ds.train_test_split(test_size=0.1, seed=42)
 train_raw = splits["train"]
 eval_raw  = splits["test"]
@@ -69,7 +69,7 @@ def build_prompt(example):
 train_ds = train_raw.map(build_prompt)
 eval_ds  = eval_raw.map(build_prompt)
 
-# -------------------- 4-bit 量化 --------------------
+# -------------------- 4-bit quantization --------------------
 bnb_config = None
 if USE_4BIT:
     bnb_config = BitsAndBytesConfig(
@@ -134,7 +134,7 @@ def _try_load():
 
 model = _try_load()
 
-# -------------------- LoRA 目标模块 --------------------
+# -------------------- LoRA target modules --------------------
 def pick_target_modules(m):
     names = set()
     for n, mod in m.named_modules():
@@ -149,7 +149,7 @@ targets = pick_target_modules(model)
 print("LoRA target_modules ->", targets)
 
 peft_config = LoraConfig(
-    r=LORA_R,              # 使用变量控制 rank
+    r=LORA_R,              # Control rank with variable
     lora_alpha=32,
     lora_dropout=0.05,
     target_modules=targets,
@@ -187,7 +187,7 @@ def tokenize_function(batch):
 train_tok = train_ds.map(tokenize_function, batched=True, remove_columns=train_ds.column_names)
 eval_tok  = eval_ds.map(tokenize_function,  batched=True, remove_columns=eval_ds.column_names)
 
-# -------------------- 训练参数 --------------------
+# -------------------- Training arguments --------------------
 args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     per_device_train_batch_size=1 if USE_4BIT else 2,
@@ -220,7 +220,7 @@ trainer = Trainer(
 
 trainer.train()
 
-# -------------------- 保存 --------------------
+# -------------------- Save --------------------
 trainer.save_model(OUTPUT_DIR)
 tokenizer.save_pretrained(OUTPUT_DIR)
 print(f"✅ LoRA training finished. Model saved to: {OUTPUT_DIR}")

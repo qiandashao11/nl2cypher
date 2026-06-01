@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # ==================== cypher_generator.py ====================
 """
-Cypher查询生成器
-使用微调的Llama 3.1将自然语言转换为Neo4j Cypher查询
+Cypher query generator
+Use fine-tuned Llama 3.1 to convert natural language into Neo4j Cypher queries
 """
 import os, json, re, torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -14,18 +14,18 @@ HF_TOKEN = os.environ.get("HF_TOKEN")
 
 
 class CypherGenerator:
-    """Cypher查询生成器"""
+    """Cypher query generator"""
     
     def __init__(self, 
                  base_model="meta-llama/Llama-3.1-8B-Instruct",
                  lora_dir="./lora_out_llama3_8b",
                  hf_token=None):
         """
-        初始化生成器
+        Initialize the generator
         
         Args:
-            base_model: 基础模型路径
-            lora_dir: LoRA适配器路径
+            base_model: base model path
+            lora_dir: LoRA adapter path
             hf_token: Hugging Face token
         """
         self.base_model = base_model
@@ -35,14 +35,14 @@ class CypherGenerator:
         if self.hf_token:
             try:
                 login(token=self.hf_token, add_to_git_credential=False)
-                print("✅ 已登录 Hugging Face")
+                print("✅ Logged in to Hugging Face")
             except Exception as e:
-                print(f"⚠️ 登录失败: {e}")
+                print(f"⚠️ Login failed: {e}")
         
         self._load_model()
     
     def _load_model(self):
-        """加载模型"""
+        """Load model"""
         print(f"🔹 Loading tokenizer: {self.base_model}")
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.base_model,
@@ -63,10 +63,10 @@ class CypherGenerator:
         print(f"🔹 Loading LoRA: {self.lora_dir}")
         self.model = PeftModel.from_pretrained(base_model, self.lora_dir)
         self.model.eval()
-        print("✅ 模型加载完成")
+        print("✅ Model loading complete")
     
     def _build_prompt(self, question: str, params: dict = None) -> str:
-        """构造prompt"""
+        """Build prompt"""
         system = (
             """You are a Cypher generator for a Neo4j graph.
 
@@ -140,27 +140,27 @@ class CypherGenerator:
 
     def _clean_output(self, raw_text: str) -> str:
         """
-        清理输出（参考你的代码逻辑）
-        1. 提取第一个MATCH/CREATE/MERGE/RETURN开始的部分
-        2. 去掉markdown代码围栏
-        3. 只保留第一个RETURN
-        4. 去重RETURN后的列
-        5. 禁止输出 SKIP / LIMIT（全部删除）
+        Clean generated output (following the existing code logic)
+        1. Extract the part starting from the first MATCH/CREATE/MERGE/RETURN.
+        2. Remove markdown code fences.
+        3. Keep only the first RETURN.
+        4. Deduplicate columns after RETURN.
+        5. Disallow SKIP / LIMIT output by removing all occurrences.
         """
-        # 从第一处 MATCH/CREATE/MERGE/RETURN 开始截取
+        # Slice from the first MATCH/CREATE/MERGE/RETURN
         start = re.search(r'(?m)^(MATCH|CREATE|MERGE|RETURN)\b', raw_text)
         cypher = raw_text[start.start():].strip() if start else raw_text.strip()
         
-        # 去掉markdown代码围栏
+        # Remove markdown code fences
         cypher = re.sub(r'^\s*```(?:cypher)?\s*', '', cypher)
         cypher = re.sub(r'\s*```.*$', '', cypher)
         
-        # 只保留第一个RETURN
+        # Keep only the first RETURN
         m = re.search(r'(?i)\bRETURN\b', cypher)
         if m:
             head = cypher[:m.start()]
             after = cypher[m.start():]
-            after_line = after.split("\n", 1)[0]  # 第一行
+            after_line = after.split("\n", 1)[0]  # first line
             
             # "RETURN a RETURN b" → "RETURN a"
             parts = re.split(r'(?i)\bRETURN\b', after_line)
@@ -168,7 +168,7 @@ class CypherGenerator:
                 cleaned_return = "RETURN " + parts[1].strip()
                 cypher = (head + cleaned_return).strip()
         
-        # 去重RETURN后的列
+        # Deduplicate columns after RETURN
         m_ret = re.search(r'(?i)\bRETURN\b', cypher)
         if m_ret:
             head = cypher[:m_ret.start()]
@@ -179,13 +179,13 @@ class CypherGenerator:
                 distinct_part = m_clause.group(1) or ""
                 cols_part = m_clause.group(2).strip()
                 
-                # 按逗号拆列
+                # Split columns by comma
                 raw_cols = [c.strip() for c in cols_part.split(",") if c.strip()]
                 
                 seen = set()
                 kept = []
                 for col in raw_cols:
-                    # 提取AS前面的表达式
+                    # Extract the expression before AS
                     expr = re.split(r'(?i)\s+AS\s+', col, maxsplit=1)[0].strip()
                     key = expr.lower()
                     if key in seen:
@@ -196,12 +196,12 @@ class CypherGenerator:
                 new_tail = "RETURN " + distinct_part + ", ".join(kept)
                 cypher = (head + new_tail).strip()
 
-        # ⭐ 禁止输出 SKIP / LIMIT：把任何 " SKIP xxx" / " LIMIT xxx" 直接删除
-        #   用 \S+ 而不是 \d+，以防模型输出 SKIP $n 这类参数形式
+        # ⭐ Disallow SKIP / LIMIT by directly removing any " SKIP xxx" / " LIMIT xxx" fragment
+        #   Use \S+ instead of \d+ in case the model emits parameter forms such as SKIP $n
         cypher = re.sub(r'\s+SKIP\s+\S+', '', cypher, flags=re.IGNORECASE)
         cypher = re.sub(r'\s+LIMIT\s+\S+', '', cypher, flags=re.IGNORECASE)
         
-        # 清理空行
+        # Remove empty lines
         lines = [ln.rstrip() for ln in cypher.splitlines() if ln.strip()]
         cypher = "\n".join(lines)
         
@@ -216,18 +216,18 @@ class CypherGenerator:
                 top_p: float = 1.0,
                 do_sample: bool = False) -> str:
         """
-        生成Cypher查询
+        Generate a Cypher query
         
         Args:
-            question: 自然语言问题
-            params: 可选参数字典
-            max_new_tokens: 最大生成token数
-            temperature: 采样温度
-            top_p: nucleus采样参数
-            do_sample: 是否采样
+            question: natural-language question
+            params: optional parameter dictionary
+            max_new_tokens: maximum number of generated tokens
+            temperature: sampling temperature
+            top_p: nucleus sampling parameter
+            do_sample: whether to sample
             
         Returns:
-            Cypher查询字符串
+            Cypher query string
         """
         prompt = self._build_prompt(question, params)
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
@@ -239,7 +239,7 @@ class CypherGenerator:
             "eos_token_id": self.tokenizer.eos_token_id,
         }
         
-        # 只有在do_sample=True时才用temperature/top_p
+        # Use temperature/top_p only when do_sample=True
         if do_sample:
             safe_temp = max(temperature, 1e-4)
             gen_kwargs.update(temperature=safe_temp, top_p=top_p)
@@ -251,7 +251,7 @@ class CypherGenerator:
         return self._clean_output(raw_text)
     
     def __call__(self, question: str, **kwargs) -> str:
-        """让对象可调用"""
+        """Make the object callable"""
         return self.generate(question, **kwargs)
 
 

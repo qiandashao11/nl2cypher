@@ -52,7 +52,7 @@ def dedup(seq: List[str]) -> List[str]:
     return out
 
 def q(nl: str, cy: str, qtype: str) -> Dict:
-    # 保证 assistant 的 Cypher 是单行、无多余空白
+    # Ensure assistant Cypher is single-line with no extra whitespace
     cy_single_line = cy.replace("\n", " ").strip()
     return {
         "messages": [
@@ -199,7 +199,7 @@ def make_basic_28(g: str, m: str) -> List[Dict]:
         "count_gene_per_mesh"
     ))
 
-    # 原来的 “Top 10 MeSH for {g} by Strength.” 模板已删除
+    # The original "Top 10 MeSH for {g} by Strength." template has been removed
 
     smin = round(random.uniform(0.2, 0.9), 2)
     out.append(q(

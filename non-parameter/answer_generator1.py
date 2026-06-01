@@ -1,9 +1,9 @@
 # ==================== answer_generator.py ====================
 """
-自然语言回答生成器（最终稳定版）
-- 彻底禁止代码块输出
-- 彻底防止 ```python 重复
-- 使用二阶段生成（草稿 + 润色）
+Natural-language answer generator (final stable version)
+- Completely forbid code block output
+- Prevent repeated ```python output
+- Use two-stage generation (draft + refinement)
 """
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -12,7 +12,7 @@ from typing import Dict, Any
 
 
 class AnswerGenerator:
-    """自然语言回答生成器"""
+    """Natural-language answer generator"""
 
     def __init__(self,
                  base_model="meta-llama/Llama-3.1-8B-Instruct",
@@ -20,7 +20,7 @@ class AnswerGenerator:
                  enable_refine=True,
                  max_new_tokens=1024):
         """
-        初始化生成器
+        Initialize the generator
         """
         self.tokenizer = AutoTokenizer.from_pretrained(base_model, token=hf_token)
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -38,7 +38,7 @@ class AnswerGenerator:
         self.pad_token_id = self.tokenizer.eos_token_id
 
     # ----------------------------------------------------------------------
-    # 格式化 Neo4j 查询结果
+    # Format Neo4j query results
     # ----------------------------------------------------------------------
     def format_results(self, query_results: Dict[str, Any]) -> str:
 
@@ -66,7 +66,7 @@ class AnswerGenerator:
         return text
 
     # ----------------------------------------------------------------------
-    # 通用封装：用于首轮与二轮
+    # Shared wrapper used for the first and second passes
     # ----------------------------------------------------------------------
     def _generate_text(self, prompt: str, tag: str = "") -> str:
 
@@ -96,7 +96,7 @@ class AnswerGenerator:
         return text
 
     # ----------------------------------------------------------------------
-    # 第一阶段：草稿生成
+    # Stage 1: draft generation
     # ----------------------------------------------------------------------
     def _first_pass(self, question: str, cypher: str, query_results: Dict[str, Any]) -> str:
 
@@ -137,7 +137,7 @@ class AnswerGenerator:
         return self._generate_text(prompt, tag="FIRST PASS")
 
     # ----------------------------------------------------------------------
-    # 第二阶段：润色版生成（更自然）
+    # Stage 2: refined generation (more natural)
     # ----------------------------------------------------------------------
     def _refine_pass(self, question: str, cypher: str, draft: str) -> str:
 
@@ -167,7 +167,7 @@ class AnswerGenerator:
         return self._generate_text(prompt, tag="REFINE PASS")
 
     # ----------------------------------------------------------------------
-    # 对外接口
+    # Public interface
     # ----------------------------------------------------------------------
     def generate(self, question: str, cypher: str, query_results: Dict[str, Any]) -> str:
 
@@ -180,7 +180,7 @@ class AnswerGenerator:
         return final
 
 
-# ==================== 自测 ====================
+# ==================== Self-test ====================
 if __name__ == "__main__":
     gen = AnswerGenerator(enable_refine=False)
 

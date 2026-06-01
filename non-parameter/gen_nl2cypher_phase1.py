@@ -3,7 +3,7 @@
 """
 Phase 1 NL→Cypher dataset generator for the Gene/MeSH/Literature graph.
 
-Schema (Phase 1 只用主键)：
+Schema (Phase 1 uses primary keys only):
   Gene(ENTITY)
   MeSH(ENTITY)
   Literature(PMID, Title, Year, Journal)
@@ -19,9 +19,9 @@ Generates chat-style JSONL training data including:
   - 30 multi-hop/compositional templates
 
 All Cypher:
-  - 使用正确大小写的属性名：ENTITY, PMID, Title, Year, Journal
-  - RETURN 只返回主键字段或简单标量（count, journal 等）
-  - 不使用 $parameter，占位值全部写入自然语言和 Cypher
+  - Use exact property-name casing: ENTITY, PMID, Title, Year, Journal
+  - RETURN only primary-key fields or simple scalars (count, journal, etc.)
+  - Do not use $parameter; write all placeholder values directly into natural language and Cypher
 """
 
 import argparse
@@ -59,7 +59,7 @@ def choose_other(lst: List[str], current: str) -> str:
     return choose(candidates or lst)
 
 def q(nl: str, cy: str, qtype: str) -> Dict:
-    """把 NL + Cypher 打包成一条训练样本，Cypher 单行、无多余空白。"""
+    """Package NL + Cypher as one training sample; keep Cypher single-line with no extra whitespace."""
     cy_single_line = cy.replace("\n", " ").strip()
     return {
         "messages": [
@@ -146,8 +146,8 @@ def maybe_reverse(cypher: str) -> str:
 def make_basic_20(g: str, m: str) -> List[Dict]:
     """
     Phase 1:
-    - 只使用主键属性：Gene.ENTITY, MeSH.ENTITY, Literature.PMID (+Title/Year/Journal in WHERE)
-    - RETURN 只输出主键或者简单标量
+    - Use only primary-key properties: Gene.ENTITY, MeSH.ENTITY, Literature.PMID (+Title/Year/Journal in WHERE)
+    - RETURN only primary keys or simple scalars
     """
     y = random.randint(2000, 2024)
     y2 = random.randint(2018, 2024)
@@ -156,7 +156,7 @@ def make_basic_20(g: str, m: str) -> List[Dict]:
 
     out: List[Dict] = []
 
-    # ---- 1) 列节点（主键） ----
+    # ---- 1) List nodes (primary keys) ----
     out.append(q(
         "List all genes.",
         "MATCH (g:Gene) RETURN g.ENTITY AS gene_entity",
@@ -173,7 +173,7 @@ def make_basic_20(g: str, m: str) -> List[Dict]:
         "list_lit"
     ))
 
-    # ---- 2) Gene ↔ MeSH / Literature 映射 ----
+    # ---- 2) Gene <-> MeSH / Literature mapping ----
     out.append(q(
         f"Find MeSH entitys co-occurring with {g}.",
         f"MATCH (:Gene {{ENTITY:'{g}'}})-[:CO_OCCURS]-(m:MeSH) "
@@ -199,7 +199,7 @@ def make_basic_20(g: str, m: str) -> List[Dict]:
         "mesh_to_lit"
     ))
 
-    # ---- 3) 文献简单过滤（按 Title / Year / Journal） ----
+    # ---- 3) Simple literature filters (by Title / Year / Journal) ----
     out.append(q(
         f"Papers whose title contains '{kw}'.",
         f"MATCH (l:Literature) "
@@ -222,7 +222,7 @@ def make_basic_20(g: str, m: str) -> List[Dict]:
         "in_journal"
     ))
 
-    # ---- 4) 基本计数统计 ----
+    # ---- 4) Basic count statistics ----
     out.append(q(
         "Count MeSH entitys per gene.",
         "MATCH (g:Gene)-[:CO_OCCURS]-(m:MeSH) "
@@ -242,7 +242,7 @@ def make_basic_20(g: str, m: str) -> List[Dict]:
         "paper_count_gene"
     ))
 
-    # ---- 5) 跨关系组合 & 共现结构 ----
+    # ---- 5) Cross-relationship combinations and co-occurrence structures ----
     out.append(q(
         f"Genes co-occurring with {m} after {y}.",
         f"MATCH (:MeSH {{ENTITY:'{m}'}})<-[:CO_OCCURS]-(g:Gene)-[:HAS_SOURCE]->(l:Literature) "
@@ -277,7 +277,7 @@ def make_basic_20(g: str, m: str) -> List[Dict]:
         "exists_gene_mesh"
     ))
 
-    # ---- 6) 存在性判断 & DISTINCT property ----
+    # ---- 6) Existence checks and DISTINCT properties ----
     out.append(q(
         "Papers that have a PMID.",
         "MATCH (l:Literature) WHERE l.PMID IS NOT NULL RETURN l.PMID AS pmid",
@@ -300,7 +300,7 @@ def make_extra(g: str, m: str, genes: List[str], meshs: List[str]) -> List[Dict]
     meshs3 = random.sample(meshs, 3) if len(meshs) >= 3 else meshs[:]
     word = choose(["immun", "metab", "oncolog"])
 
-    # 随机造一个示例 PMID，用在 NL 和 Cypher 里（不再用 $pmid）
+    # Randomly create an example PMID for NL and Cypher (no $pmid)
     pmid_example = str(random.randint(10_000_000, 99_999_999))
 
     # genes IN list -> papers
@@ -321,7 +321,7 @@ def make_extra(g: str, m: str, genes: List[str], meshs: List[str]) -> List[Dict]
         "papers_by_meshes_in"
     ))
 
-    # PMID -> entities（不再用 $pmid，而是用具体 PMID 字面量）
+    # PMID -> entities (use a concrete PMID literal instead of $pmid)
     out.append(q(
         f"Find all genes and MeSH reported in the paper with PMID {pmid_example}.",
         f"MATCH (l:Literature {{PMID: '{pmid_example}'}})<-[:HAS_SOURCE]-(e) "
@@ -342,7 +342,7 @@ def make_extra(g: str, m: str, genes: List[str], meshs: List[str]) -> List[Dict]
         "mesh_by_pmid"
     ))
 
-    # MeSH CONTAINS word -> papers / papers+MeSH（用 'metab' 这种字面量，不再用 $word）
+    # MeSH CONTAINS word -> papers / papers+MeSH (use a literal such as 'metab' instead of $word)
     out.append(q(
         f"Find all papers that report MeSH containing the word '{word}'.",
         f"MATCH (m:MeSH)-[:HAS_SOURCE]->(l:Literature) "
@@ -358,7 +358,7 @@ def make_extra(g: str, m: str, genes: List[str], meshs: List[str]) -> List[Dict]
         "papers_and_mesh_by_mesh_like"
     ))
 
-    # 单个 gene -> papers / papers+co-entities
+    # Single gene -> papers / papers+co-entities
     out.append(q(
         f"Find all papers that report {g}.",
         f"MATCH (:Gene {{ENTITY:'{g}'}})-[:HAS_SOURCE]->(l:Literature) "
@@ -385,7 +385,7 @@ def make_extra(g: str, m: str, genes: List[str], meshs: List[str]) -> List[Dict]
         "papers_gene_and_coentities"
     ))
 
-    # thematic-year filter（同样用字面量 keyword，不用 $keyword）
+    # thematic-year filter (use a literal keyword instead of $keyword)
     keyword = choose(THEMATIC_KEYWORDS)
     cy = (
         f"MATCH (p:Literature)<-[:HAS_SOURCE]-(g:Gene)-[:CO_OCCURS]-(m:MeSH) "

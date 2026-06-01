@@ -1,8 +1,8 @@
 # nl2cypher/make_sft_set.py
 import json, jsonlines, pathlib
 
-SRC = pathlib.Path("nl2cypher_train_en_1000.jsonl")   # 原始生成文件
-DST = pathlib.Path("dataset_en.jsonl")                # 训练集输出
+SRC = pathlib.Path("nl2cypher_train_en_1000.jsonl")   # source generated file
+DST = pathlib.Path("dataset_en.jsonl")                # training set output
 
 count = 0
 with jsonlines.open(SRC) as reader, open(DST, "w", encoding="utf-8") as out:

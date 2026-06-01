@@ -52,7 +52,7 @@ def dedup(seq: List[str]) -> List[str]:
     return out
 
 def q(nl: str, cy: str, qtype: str) -> Dict:
-    # 保证 assistant 的 Cypher 是单行、无多余空白
+    # Ensure assistant Cypher is single-line with no extra whitespace
     cy_single_line = cy.replace("\n", " ").strip()
     return {
         "messages": [
@@ -188,7 +188,7 @@ def make_basic_30(g: str, m: str) -> List[Dict]:
     ))
 
     # Aggregations (keep useful scalars)
-    # 按你的规则：这里不再乱加排序
+    # Per the rule, do not add unnecessary sorting here
     out.append(q(
         "Count MeSH entitys per gene.",
         "MATCH (g:Gene)-[:CO_OCCURS]-(m:MeSH) RETURN g.entity AS gene, count(DISTINCT m) AS mesh_count",

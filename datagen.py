@@ -4,7 +4,7 @@ import random
 gene_file = "Gene_Symbol_to_Alias_lookup_table.tsv"
 mesh_file = "random_mesh_dataset.csv"
 
-# 只取第一列
+# Use only the first column
 df_gene = pd.read_csv(gene_file, sep="\t", usecols=[0], names=["gene"], header=0)
 df_mesh = pd.read_csv(mesh_file)
 

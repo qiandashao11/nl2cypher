@@ -1,7 +1,7 @@
 # ==================== answer_generator.py ====================
 """
-自然语言回答生成器
-将查询结果转换为自然语言回答
+Natural-language answer generator
+Convert query results into natural-language answers
 """
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
@@ -9,16 +9,16 @@ from typing import Dict, Any
 
 
 class AnswerGenerator:
-    """自然语言回答生成器"""
+    """Natural-language answer generator"""
 
     def __init__(self,
                  base_model="meta-llama/Llama-3.1-8B-Instruct",
                  hf_token=None):
         """
-        初始化生成器
+        Initialize the generator
 
         Args:
-            base_model: 使用的模型路径（Llama 3.1 模型）
+            base_model: model path to use (Llama 3.1 model)
             hf_token: Hugging Face token
         """
         self.tokenizer = AutoTokenizer.from_pretrained(base_model, token=hf_token)
@@ -32,13 +32,13 @@ class AnswerGenerator:
 
     def format_results(self, query_results: Dict[str, Any]) -> str:
         """
-        格式化查询结果
+        Format query results
 
         Args:
-            query_results: execute()返回的结果字典
+            query_results: result dictionary returned by execute()
 
         Returns:
-            格式化的文本
+            formatted text
         """
         if not query_results["success"]:
             return f"Query execution failed: {query_results.get('error', 'Unknown error')}"
@@ -46,7 +46,7 @@ class AnswerGenerator:
         if not query_results["data"]:
             return "No results returned from the query."
 
-        # 限制显示数量
+        # Limit displayed row count
         max_display = 20
         records = query_results["data"][:max_display]
         count = query_results["count"]
@@ -69,15 +69,15 @@ class AnswerGenerator:
                  cypher: str,
                  query_results: Dict[str, Any]) -> str:
         """
-        生成自然语言回答
+        Generate a natural-language answer
 
         Args:
-            question: 用户原始问题
-            cypher: 执行的Cypher查询
-            query_results: 查询结果
+            question: original user question
+            cypher: executed Cypher query
+            query_results: query results
 
         Returns:
-            自然语言回答
+            natural-language answer
         """
         formatted_results = self.format_results(query_results)
 
@@ -116,7 +116,7 @@ Please provide a natural, clear answer based on the query results.
 
 
 if __name__ == "__main__":
-    # 测试
+    # Test
     gen = AnswerGenerator()
 
     mock_results = {

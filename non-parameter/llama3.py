@@ -9,20 +9,20 @@ from transformers import (
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from huggingface_hub import login
 
-# -------- 登录（建议用环境变量，不要把 token 写进代码） --------
+# -------- Login (use environment variables; do not hard-code tokens) --------
 HF_TOKEN = os.environ.get("HF_TOKEN")
 if HF_TOKEN:
     try:
         login(token=HF_TOKEN, add_to_git_credential=False)
-        print("✅ 已登录 Hugging Face")
+        print("✅ Logged in to Hugging Face")
     except Exception as e:
-        print("⚠️ 登录失败：", e)
+        print("⚠️ Login failed:", e)
 else:
-    print("ℹ️ 未设置 HF_TOKEN，将依赖本地缓存/已登录状态。")
+    print("ℹ️ HF_TOKEN is not set; relying on local cache or existing login state.")
 
-# -------- 基础配置 --------
+# -------- Basic configuration --------
 MODEL_NAME = os.environ.get("BASE_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
-DATA_PATH  = os.environ.get("DATA_PATH", "train.chat2.jsonl")   # <- 你的 chat JSONL
+DATA_PATH  = os.environ.get("DATA_PATH", "train.chat2.jsonl")   # <- your chat JSONL
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "./lora_out_llama3_8b")
 MAX_LEN    = int(os.environ.get("MAX_LEN", "2048"))
 USE_4BIT   = os.environ.get("USE_4BIT", "1") == "1"
@@ -36,12 +36,12 @@ print(f"4-bit quant: {USE_4BIT}")
 print(f"Local-only : {LOCAL_FILES_ONLY}")
 print(f"Max length : {MAX_LEN}")
 
-# -------- 数据集加载 --------
+# -------- Load dataset --------
 raw_ds = load_dataset("json", data_files=DATA_PATH, split="train")
 splits  = raw_ds.train_test_split(test_size=0.1, seed=42)
 train_raw, eval_raw = splits["train"], splits["test"]
 
-# -------- 针对你的图谱的系统提示（可按需修改/加属性） --------
+# -------- System prompt for your graph (customize or add properties as needed) --------
 SCHEMA_SYSTEM_PROMPT = """You are a Cypher generator for a Neo4j graph.
 Only output a Cypher query. Do not add explanations.
 
@@ -61,16 +61,16 @@ Guidelines:
 
 def _extract_qa(example):
     """
-    同时支持两种数据结构：
+    Also supports two data structures:
     A) chat JSONL: {"messages":[{"role":"user","content":...},{"role":"assistant","content":...}], "metadata": ...}
     B) flat JSONL: {"question_en": "...", "cypher": "...", "params": {...}}
-    返回 (question, cypher, params)
+    Returns (question, cypher, params)
     """
     if "messages" in example and isinstance(example["messages"], list):
         user_msg = next((m.get("content","") for m in example["messages"] if m.get("role")=="user"), "")
         asst_msg = next((m.get("content","") for m in example["messages"] if m.get("role")=="assistant"), "")
         return user_msg, asst_msg, None
-    # 兼容旧格式
+    # Backward compatibility for older formats
     return example.get("question_en",""), example.get("cypher",""), example.get("params", None)
 
 def build_prompt(example):
@@ -85,7 +85,7 @@ def build_prompt(example):
 train_ds = train_raw.map(build_prompt)
 eval_ds  = eval_raw.map(build_prompt)
 
-# -------- 4-bit 量化（可选） --------
+# -------- 4-bit quantization (optional) --------
 bnb_config = None
 if USE_4BIT:
     bnb_config = BitsAndBytesConfig(
@@ -131,7 +131,7 @@ def _try_load():
         return AutoModelForCausalLM.from_pretrained(MODEL_NAME, **model_kwargs)
     except Exception as e:
         if not (LOCAL_FILES_ONLY or IS_LOCAL_PATH):
-            print("⚠️ 远程加载失败，回退 local_files_only=True。错误：", repr(e))
+            print("⚠️ Remote loading failed; falling back to local_files_only=True. Error:", repr(e))
             model_kwargs["local_files_only"] = True
             model_kwargs.pop("token", None)
             return AutoModelForCausalLM.from_pretrained(MODEL_NAME, **model_kwargs)
@@ -139,7 +139,7 @@ def _try_load():
 
 model = _try_load()
 
-# -------- LoRA 目标层自动选择 --------
+# -------- Automatically select LoRA target layers --------
 def pick_target_modules(m):
     names = set()
     for n, mod in m.named_modules():
@@ -164,7 +164,7 @@ model.print_trainable_parameters()
 if hasattr(model, "gradient_checkpointing_enable"):
     model.gradient_checkpointing_enable()
 
-# -------- Tokenize（只对答案段计损失） --------
+# -------- Tokenize (compute loss only on the answer segment) --------
 def tokenize_function(batch):
     inputs = [p + t for p, t in zip(batch["prompt"], batch["target"])]
     out = tokenizer(inputs, truncation=True, padding="max_length", max_length=MAX_LEN)
@@ -186,7 +186,7 @@ def tokenize_function(batch):
 train_tok = train_ds.map(tokenize_function, batched=True, remove_columns=train_ds.column_names)
 eval_tok  = eval_ds.map(tokenize_function,  batched=True, remove_columns=eval_ds.column_names)
 
-# -------- 训练参数 --------
+# -------- Training arguments --------
 args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     per_device_train_batch_size=1 if USE_4BIT else 2,

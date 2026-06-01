@@ -11,7 +11,7 @@ from transformers import (
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
-# =============== 基础配置 ===============
+# =============== Basic configuration ===============
 MODEL_NAME = os.environ.get("BASE_MODEL", "microsoft/phi-3-mini-4k-instruct")
 DATA_PATH  = os.environ.get("DATA_PATH", "nl2cypher_train_en_1000.jsonl")
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "./lora_out")
@@ -22,14 +22,14 @@ print(f"Base model : {MODEL_NAME}")
 print(f"Data file  : {DATA_PATH}")
 print(f"4-bit quant: {USE_4BIT}")
 
-# =============== 加载数据集 ===============
-# 格式: {"instruction": "...", "output": "..."}
+# =============== Load dataset ===============
+# Format: {"instruction": "...", "output": "..."}
 raw_ds = load_dataset("json", data_files=DATA_PATH, split="train")
 
 def build_prompt(example):
     """
-    构建训练样本，使模型学会输出 Cypher 和 Params。
-    适配数据结构: {"question_en": "...", "cypher": "...", "params": {...}}
+    Build training samples so the model learns to output Cypher and Params.
+    Supports data schema: {"question_en": "...", "cypher": "...", "params": {...}}
     """
     q = example.get("question_en", "").strip()
     c = example.get("cypher", "").strip()
@@ -42,7 +42,7 @@ def build_prompt(example):
         f"{c}"
     )
 
-    # 如果 params 存在，就追加到 prompt
+    # Append params to the prompt when present
     if p:
         prompt += "\nParams:\n" + json.dumps(p, ensure_ascii=False, separators=(",", ":"))
 
@@ -63,7 +63,7 @@ model = AutoModelForCausalLM.from_pretrained(
     trust_remote_code=True,
 )
 
-# =============== 自动选择 LoRA 注入层 ===============
+# =============== Automatically select LoRA target layers ===============
 def pick_target_modules(m):
     names = set()
     for n, mod in m.named_modules():
@@ -80,7 +80,7 @@ def pick_target_modules(m):
 targets = pick_target_modules(model)
 print("LoRA target_modules ->", targets)
 
-# =============== LoRA 配置 ===============
+# =============== LoRA configuration ===============
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 peft_config = LoraConfig(
     r=16,
@@ -108,7 +108,7 @@ def tokenize(batch):
 
 tokenized = ds.map(tokenize, batched=True, remove_columns=ds.column_names)
 
-# =============== 训练参数 ===============
+# =============== Training arguments ===============
 args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     per_device_train_batch_size=2,
@@ -133,7 +133,7 @@ trainer = Trainer(
 
 trainer.train()
 
-# =============== 保存模型 ===============
+# =============== Save model ===============
 model.save_pretrained(OUTPUT_DIR)
 tokenizer.save_pretrained(OUTPUT_DIR)
 print(f"✅ LoRA finished. Saved to: {OUTPUT_DIR}")

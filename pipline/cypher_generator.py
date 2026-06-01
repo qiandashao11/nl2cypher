@@ -1,7 +1,7 @@
 # ==================== cypher_generator.py ====================
 """
-Cypher查询生成器
-用Llama 3将自然语言转换为Neo4j Cypher查询
+Cypher query generator
+Use Llama 3 to convert natural language into Neo4j Cypher queries
 """
 import os, json, re, torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -12,18 +12,18 @@ HF_TOKEN = os.environ.get("HF_TOKEN")
 
 
 class CypherGenerator:
-    """Cypher查询生成器"""
+    """Cypher query generator"""
     
     def __init__(self, 
                  base_model="meta-llama/Llama-3.1-8B-Instruct",
                  lora_dir="/home/qianzi/nl2cypher/non-parameter/lora_out_llama3_8b2",
                  hf_token=None):
         """
-        初始化生成器
+        Initialize the generator
         
         Args:
-            base_model: 基础模型路径
-            lora_dir: LoRA适配器路径
+            base_model: base model path
+            lora_dir: LoRA adapter path
             hf_token: Hugging Face token
         """
         self.base_model = base_model
@@ -40,7 +40,7 @@ class CypherGenerator:
         self._load_model()
     
     def _load_model(self):
-        """加载模型"""
+        """Load model"""
         print(f"🔹 Loading tokenizer: {self.base_model}")
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.base_model,
@@ -64,7 +64,7 @@ class CypherGenerator:
         print("✅ Model loaded")
     
     def _build_prompt(self, question: str, params: dict = None) -> str:
-        """构造prompt"""
+        """Build prompt"""
         system = (
             "You are a Cypher generator for a Neo4j graph.\n"
             "Return ONLY the Cypher query. No explanations, no prose, no markdown, no code fences.\n"
@@ -100,7 +100,7 @@ class CypherGenerator:
         )
     
     def _clean_output(self, raw_text: str) -> str:
-        """清理输出"""
+        """Clean generated output"""
         start = re.search(r'(?m)^(MATCH|CREATE|MERGE|RETURN)\b', raw_text)
         cypher = raw_text[start.start():].strip() if start else raw_text.strip()
         cypher = re.sub(r'^\s*```(?:cypher)?\s*', '', cypher)
@@ -115,18 +115,18 @@ class CypherGenerator:
                 top_p: float = 1.0,
                 do_sample: bool = False) -> str:
         """
-        生成Cypher查询
+        Generate a Cypher query
         
         Args:
-            question: 自然语言问题
-            params: 可选参数字典
-            max_new_tokens: 最大生成token数
-            temperature: 采样温度
-            top_p: nucleus采样参数
-            do_sample: 是否采样
+            question: natural-language question
+            params: optional parameter dictionary
+            max_new_tokens: maximum number of generated tokens
+            temperature: sampling temperature
+            top_p: nucleus sampling parameter
+            do_sample: whether to sample
             
         Returns:
-            Cypher查询字符串
+            Cypher query string
         """
         prompt = self._build_prompt(question, params)
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
@@ -151,12 +151,12 @@ class CypherGenerator:
         return self._clean_output(raw_text)
     
     def __call__(self, question: str, **kwargs) -> str:
-        """让对象可调用"""
+        """Make the object callable"""
         return self.generate(question, **kwargs)
 
 
 def generate_cypher(question: str, **kwargs) -> str:
-    """便捷函数：一次性生成Cypher"""
+    """Convenience function: generate Cypher in one call"""
     gen = CypherGenerator(**kwargs)
     return gen.generate(question)
 

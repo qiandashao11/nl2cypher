@@ -1,7 +1,7 @@
 # ==================== qa_system.py ====================
 """
-完整的Neo4j问答系统
-整合Cypher生成、查询执行和回答生成
+Complete Neo4j QA system
+Integrate Cypher generation, query execution, and answer generation
 """
 from cypher_generator import CypherGenerator
 from neo4j_executor import Neo4jExecutor
@@ -10,27 +10,27 @@ from typing import Dict, Any
 
 
 class Neo4jQASystem:
-    """完整的问答系统"""
+    """Complete QA system"""
     
     def __init__(self,
-                 # Cypher生成器参数
+                 # Cypher generator parameters
                  base_model: str = "meta-llama/Llama-3.1-8B-Instruct",
                  lora_dir: str = "./lora_out_llama3_8b",
                  hf_token: str = None,
-                 # Neo4j参数
+                 # Neo4j parameters
                  neo4j_uri: str = "neo4j://localhost:7687",
                  neo4j_user: str = "neo4j",
                  neo4j_password: str = "neo4j"):
         """
-        初始化问答系统
+        Initialize QA system
         
         Args:
-            base_model: Llama基础模型
-            lora_dir: LoRA路径
+            base_model: Llama base model
+            lora_dir: LoRA path
             hf_token: HF token
-            neo4j_uri: Neo4j地址
-            neo4j_user: Neo4j用户名
-            neo4j_password: Neo4j密码
+            neo4j_uri: Neo4j URI
+            neo4j_user: Neo4j username
+            neo4j_password: Neo4j password
         """
         print("=" * 60)
         print("Initializing Neo4j QA System...")
@@ -50,16 +50,16 @@ class Neo4jQASystem:
               params: dict = None,
               verbose: bool = True) -> Dict[str, Any]:
         """
-        完整的问答流程
+        Complete QA workflow
         
         Args:
-            question: 用户问题
-            database: Neo4j数据库名
-            params: 可选参数
-            verbose: 是否打印过程信息
+            question: user question
+            database: Neo4j database name
+            params: optional parameters
+            verbose: whether to print progress/details
             
         Returns:
-            包含完整结果的字典:
+            dictionary containing full results:
             {
                 "question": str,
                 "cypher": str,
@@ -73,14 +73,14 @@ class Neo4jQASystem:
             print("=" * 60)
             print(f"\n[Question] {question}\n")
         
-        # 步骤1: 生成Cypher
+        # Step 1: Generate Cypher
         if verbose:
             print("[Step 1] Generating Cypher...")
         cypher = self.cypher_gen.generate(question, params)
         if verbose:
             print(f"[Cypher]\n{cypher}\n")
         
-        # 步骤2: 执行查询
+        # Step 2: Execute query
         if verbose:
             print("[Step 2] Executing query...")
         results = self.neo4j_exec.execute(cypher, database)
@@ -90,7 +90,7 @@ class Neo4jQASystem:
             else:
                 print(f"[Error] {results.get('error')}\n")
         
-        # 步骤3: 生成回答
+        # Step 3: Generate answer
         if verbose:
             print("[Step 3] Generating answer...")
         answer = self.answer_gen.generate(question, cypher, results)
@@ -108,15 +108,15 @@ class Neo4jQASystem:
         }
     
     def close(self):
-        """关闭连接"""
+        """Close connection"""
         self.neo4j_exec.close()
     
     def __enter__(self):
-        """支持with语句"""
+        """Support with-statements"""
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """支持with语句"""
+        """Support with-statements"""
         self.close()
 
 

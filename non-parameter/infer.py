@@ -4,11 +4,11 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 import json
 
-# ====== 路径配置 ======
-BASE_MODEL = "microsoft/phi-3-mini-4k-instruct"      # 与训练时相同
-LORA_PATH  = "lora_out"        # 你训练输出的目录
+# ====== Path configuration ======
+BASE_MODEL = "microsoft/phi-3-mini-4k-instruct"      # same as during training
+LORA_PATH  = "lora_out"        # your training output directory
 
-# ====== 加载模型 ======
+# ====== Load model ======
 print("🚀 Loading model...")
 tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(
@@ -20,10 +20,10 @@ model = AutoModelForCausalLM.from_pretrained(
 model = PeftModel.from_pretrained(model, LORA_PATH)
 model.eval()
 
-# ====== 推理函数 ======
+# ====== Inference function ======
 def generate_cypher(question: str, schema: str = None, max_new_tokens: int = 512):
     """
-    输入英文自然语言问题，返回模型生成的 Cypher 和 Params。
+    Input an English natural-language question and return the model-generated Cypher and Params.
     """
     prompt = "You are a Cypher generator."
     if schema:
@@ -44,7 +44,7 @@ def generate_cypher(question: str, schema: str = None, max_new_tokens: int = 512
         result = result.split("Cypher:", 1)[1].strip()
     return result
 
-# ====== 示例 ======
+# ====== Example ======
 if __name__ == "__main__":
     q = "Which genes are associated with the MeSH term 'cold'?"
     output = generate_cypher(q)

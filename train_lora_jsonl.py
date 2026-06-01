@@ -11,23 +11,23 @@ from transformers import (
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
-# =============== 基础配置 ===============
+# =============== Basic configuration ===============
 MODEL_NAME = os.environ.get("BASE_MODEL", "microsoft/phi-3-mini-4k-instruct")
 DATA_PATH  = os.environ.get("DATA_PATH", "dataset_en.jsonl")
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "./lora_out")
 MAX_LEN    = int(os.environ.get("MAX_LEN", "512"))
-USE_4BIT   = os.environ.get("USE_4BIT", "1") == "1"   # 也可设 USE_8BIT=1
+USE_4BIT   = os.environ.get("USE_4BIT", "1") == "1"   # USE_8BIT=1 can also be set
 
 print(f"Base model: {MODEL_NAME}")
 print(f"Data file : {DATA_PATH}")
 print(f"4-bit     : {USE_4BIT}")
 
-# =============== 加载数据集 ===============
-# JSONL 的字段：{"instruction": "...", "output": "CYTHER ..."}
+# =============== Load dataset ===============
+# JSONL fields:{"instruction": "...", "output": "CYTHER ..."}
 raw_ds = load_dataset("json", data_files=DATA_PATH, split="train")
 
 def build_sample(example):
-    # chat 风格 prompt。你也可以自己改模板。
+    # Chat-style prompt. You can customize this template.
     prompt = (
         "You are a Cypher generator.\n"
         f"User: {example['instruction']}\n"
@@ -46,12 +46,12 @@ if tokenizer.pad_token is None:
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     load_in_4bit=True if USE_4BIT else False,
-    load_in_8bit=False if USE_4BIT else True,  # 二选一：默认用 4bit
+    load_in_8bit=False if USE_4BIT else True,  # choose one: defaults to 4-bit
     device_map="auto",
     trust_remote_code=True,
 )
 
-# =============== 自动选择 LoRA 注入层 ===============
+# =============== Automatically select LoRA target layers ===============
 def pick_target_modules(m):
     names = set()
     for n, mod in m.named_modules():
@@ -67,12 +67,12 @@ def pick_target_modules(m):
     if phi_like & set(names):
         return sorted(list(phi_like & set(names)))
 
-    return "all-linear"  # 兜底：给所有 Linear 注入（显存稍多）
+    return "all-linear"  # fallback: inject into all Linear layers (uses more VRAM)
 
 targets = pick_target_modules(model)
 print("LoRA target_modules ->", targets)
 
-# =============== LoRA 配置 ===============
+# =============== LoRA configuration ===============
 peft_config = LoraConfig(
     r=16,
     lora_alpha=32,
@@ -99,7 +99,7 @@ def tokenize(batch):
 
 tokenized = ds.map(tokenize, batched=True, remove_columns=ds.column_names)
 
-# =============== 训练参数 ===============
+# =============== Training arguments ===============
 args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     per_device_train_batch_size=2,
