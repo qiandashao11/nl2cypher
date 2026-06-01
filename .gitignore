@@ -1,0 +1,57 @@
+# Python caches and local tooling
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+non-parameter/nl2.yml
+non-parameter/old_env.yml
+non-parameter/simclr_env.yml
+*.key
+*.pem
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Experiment logs and trackers
+*.log
+gpu_log.csv
+wandb/
+runs/
+outputs/
+
+# Model weights, adapters, and training checkpoints
+**/lora_out*/
+**/checkpoint-*/
+**/mistral7b_v03_local/
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.bin
+
+# Hugging Face / dataset caches
+.cache/
+cache/
+hf_cache/
+datasets_cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp

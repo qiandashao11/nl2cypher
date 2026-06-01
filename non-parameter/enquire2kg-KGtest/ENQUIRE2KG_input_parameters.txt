@@ -1,0 +1,3 @@
+wd=/mnt/
+tag=KGtest
+input=tmp-test/test_subgraphs_expansion1/

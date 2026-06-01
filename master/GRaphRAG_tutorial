@@ -1,0 +1,7 @@
+from weaviate.util import generate_uuid5
+import weaviate
+import json
+import pandas as pd
+
+#Read in the pubmed data
+df = pd.read_csv("PubMed Multi Label Text Classification Dataset Processed.csv")
